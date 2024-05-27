@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   CButton,
   CCard,
@@ -13,8 +13,9 @@ import {
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilLockLocked, cilUser, cilMap } from '@coreui/icons'
-import { useState } from 'react'
-import axios from 'axios'
+import { auth, database } from '../../../firebase'
+import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { ref, set } from 'firebase/database'
 
 const Register = () => {
   const [username, setUsername] = useState('')
@@ -22,39 +23,53 @@ const Register = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-
-  const apiUrl = 'https://6643c7556c6a656587084d66.mockapi.io/users'
+  const [error, setError] = useState('')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setError('')
+
     if (password !== confirmPassword) {
-      alert('Пароли не совпадают')
+      setError('Пароли не совпадают')
       return
     }
+
     if (!username || !address || !email || !password || !confirmPassword) {
-      alert('Пожалуйста, заполните все поля.')
+      setError('Пожалуйста, заполните все поля.')
       return
-    }
-    const newUser = {
-      username,
-      address,
-      email,
-      password,
     }
 
     try {
-      const response = await axios.post(apiUrl, newUser)
-      console.log('User added:', response.data)
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      const uid = userCredential.user.uid
+      const newUser = {
+        username,
+        address,
+        email,
+        uid,
+      }
+
+      await set(ref(database, 'users/' + uid), newUser)
+      console.log('User registered:', newUser)
+
+      // Сохраняем userId в localStorage
+      localStorage.setItem('currentUser', JSON.stringify(uid))
+
+      // Сбрасываем поля формы
       setUsername('')
       setAddress('')
       setEmail('')
       setPassword('')
       setConfirmPassword('')
-      window.location.href = '#'
+
+      // Перенаправляем пользователя на страницу профиля
+      window.location.href = '/profile'
     } catch (error) {
-      console.error('Error adding user:', error)
+      console.error('Error registering user:', error)
+      setError('An error occurred while registering')
     }
   }
+
   return (
     <div className="bg-body-tertiary min-vh-100 d-flex flex-row align-items-center">
       <CContainer>
@@ -65,6 +80,7 @@ const Register = () => {
                 <CForm onSubmit={handleSubmit}>
                   <h1>Регистрация</h1>
                   <p className="text-body-secondary">Создай свой аккаунт</p>
+                  {error && <p className="text-danger">{error}</p>}
                   <CInputGroup className="mb-3">
                     <CInputGroupText>
                       <CIcon icon={cilUser} />
@@ -81,7 +97,6 @@ const Register = () => {
                     </CInputGroupText>
                     <CFormInput
                       placeholder="Адрес"
-                      autoComplete="address"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                     />
@@ -90,7 +105,6 @@ const Register = () => {
                     <CInputGroupText>@</CInputGroupText>
                     <CFormInput
                       placeholder="Email"
-                      autoComplete="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                     />
@@ -102,7 +116,6 @@ const Register = () => {
                     <CFormInput
                       type="password"
                       placeholder="Пароль"
-                      autoComplete="new-password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
@@ -114,20 +127,8 @@ const Register = () => {
                     <CFormInput
                       type="password"
                       placeholder="Повтори пароль"
-                      autoComplete="new-password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                    />
-                  </CInputGroup>
-                  <CInputGroup className="mb-4">
-                    <label htmlFor="avatar" className="form-label">
-                      Выберите аватарку
-                    </label>
-                    <CFormInput
-                      type="file"
-                      id="avatar"
-                      onChange={(e) => setAvatar(e.target.files[0])}
-                      required
                     />
                   </CInputGroup>
                   <div className="d-grid">

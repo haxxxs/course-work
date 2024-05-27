@@ -15,38 +15,35 @@ import {
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilLockLocked, cilUser } from '@coreui/icons'
-import axios from 'axios'
+import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
+import { app } from '../../../firebase'
 
 const Login = () => {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
 
+  const auth = getAuth(app)
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
 
     try {
-      const response = await axios.get('https://6643c7556c6a656587084d66.mockapi.io/users')
-      const users = response.data
-
-      const user = users.find((user) => user.username === username && user.password === password)
-
       if (!username || !password) {
-        alert('Пожалуйста, заполните все поля.')
+        setError('Please fill in all fields.')
         return
       }
 
-      if (user) {
-        console.log('Login successful:', user)
-        localStorage.setItem('currentUser', JSON.stringify(user.id))
-        window.location.href = '/profile'
-      } else {
-        setError('Invalid username or password')
-      }
+      const userCredential = await signInWithEmailAndPassword(auth, username, password)
+
+      console.log('Login successful:', userCredential.user)
+      // Устанавливаем идентификатор текущего пользователя в localStorage или в контекст приложения, если это требуется
+
+      window.location.href = '/profile'
     } catch (err) {
-      console.error('Error fetching users:', err)
-      setError('An error occurred while logging in')
+      console.error('Error logging in:', err)
+      setError('Invalid username or password')
     }
   }
 
@@ -59,16 +56,16 @@ const Login = () => {
               <CCard className="p-4">
                 <CCardBody>
                   <CForm onSubmit={handleSubmit}>
-                    <h1>Вход</h1>
-                    <p className="text-body-secondary">Войти в свой аккаунт</p>
+                    <h1>Login</h1>
+                    <p className="text-body-secondary">Sign in to your account</p>
                     {error && <p className="text-danger">{error}</p>}
                     <CInputGroup className="mb-3">
                       <CInputGroupText>
                         <CIcon icon={cilUser} />
                       </CInputGroupText>
                       <CFormInput
-                        placeholder="Username"
-                        autoComplete="username"
+                        placeholder="Email"
+                        autoComplete="email"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                       />
@@ -88,12 +85,12 @@ const Login = () => {
                     <CRow>
                       <CCol xs={6}>
                         <CButton color="primary" className="px-4" type="submit">
-                          Вход
+                          Sign In
                         </CButton>
                       </CCol>
                       <CCol xs={6} className="text-right">
                         <CButton color="link" className="px-0">
-                          Забыли пароль?
+                          Forgot password?
                         </CButton>
                       </CCol>
                     </CRow>
@@ -103,13 +100,11 @@ const Login = () => {
               <CCard className="text-white bg-primary py-5" style={{ width: '44%' }}>
                 <CCardBody className="text-center">
                   <div>
-                    <h2>Регистрация</h2>
-                    <p>
-                      Зарегиструйся, попробуй себя в роли волонтера и измени свой любимый город.
-                    </p>
+                    <h2>Register</h2>
+                    <p>Sign up, try yourself as a volunteer and change your favorite city.</p>
                     <Link to="/register">
                       <CButton color="primary" className="mt-3" active tabIndex={-1}>
-                        Зарегистрироваться!
+                        Sign Up!
                       </CButton>
                     </Link>
                   </div>

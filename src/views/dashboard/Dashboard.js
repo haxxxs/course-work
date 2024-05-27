@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   CCard,
   CCardBody,
@@ -11,30 +11,68 @@ import {
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilCheckCircle } from '@coreui/icons'
+import { database, storage } from '../../firebase'
+import { ref, onValue, get, set } from 'firebase/database'
+import { getDownloadURL, ref as storageRef } from 'firebase/storage'
 import styles from './Dashboard.module.scss'
-import img1 from '../../assets/images/trash1.jpg'
-import img2 from '../../assets/images/trash2.jpg'
 
 const Dashboard = () => {
-  const trashItems = [
-    {
-      id: 1,
-      street: 'Улица Тархова 29',
-      description: 'Мусор находится рядом с кфс.',
-      imageUrl: img1,
-    },
-    {
-      id: 2,
-      street: '2nd Ave',
-      description: 'Scattered trash near the bus stop.',
-      imageUrl: img2,
-    },
-    // Добавьте больше элементов по необходимости
-  ]
+  const [trashItems, setTrashItems] = useState([])
 
-  const handleCleanUp = (id) => {
-    console.log(`Trash item with id ${id} has been taken for cleanup.`)
-    // Логика для обработки уборки мусора
+  useEffect(() => {
+    const fetchTrashItems = async () => {
+      const trashCardsRef = ref(database, 'trashCards')
+      onValue(trashCardsRef, async (snapshot) => {
+        const items = snapshot.val()
+        if (items) {
+          const itemsArray = Object.keys(items).map((key) => ({
+            id: key,
+            ...items[key],
+          }))
+
+          // Fetch image URLs from storage
+          const itemsWithImageUrls = await Promise.all(
+            itemsArray.map(async (item) => {
+              const imageUrl = await getDownloadURL(storageRef(storage, item.imageUrl))
+              return { ...item, imageUrl }
+            }),
+          )
+
+          setTrashItems(itemsWithImageUrls)
+        }
+      })
+    }
+
+    fetchTrashItems()
+  }, [])
+
+  const handleCleanUp = async (item) => {
+    const userId = JSON.parse(localStorage.getItem('currentUser'))
+
+    if (!userId) {
+      alert('Please log in to add items to your profile.')
+      return
+    }
+
+    try {
+      const userRef = ref(database, `users/${userId}`)
+      const userSnapshot = await get(userRef)
+
+      if (userSnapshot.exists()) {
+        const user = userSnapshot.val()
+        const updatedUser = {
+          ...user,
+          trashItems: [...(user.trashItems || []), item],
+        }
+
+        await set(userRef, updatedUser)
+        alert('Trash item added to your profile.')
+      } else {
+        console.error('User not found.')
+      }
+    } catch (error) {
+      console.error('Error adding trash item to user profile:', error)
+    }
   }
 
   return (
@@ -53,7 +91,7 @@ const Dashboard = () => {
             </CRow>
           </CCardBody>
           <CCardFooter>
-            <CButton color="success" onClick={() => handleCleanUp(item.id)}>
+            <CButton color="success" onClick={() => handleCleanUp(item)}>
               <CIcon icon={cilCheckCircle} className="me-2" />
               Забрать на уборку
             </CButton>

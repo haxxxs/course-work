@@ -1,6 +1,7 @@
 import React from 'react'
 import Register from './views/pages/register/Register'
 import Profile from './views/pages/Profile/Profile'
+import CreateCard from './views/pages/CreateCard/CreateCard'
 
 const Dashboard = React.lazy(() => import('./views/dashboard/Dashboard'))
 const Colors = React.lazy(() => import('./views/theme/colors/Colors'))
@@ -99,6 +100,7 @@ const routes = [
   { path: '/widgets', name: 'Widgets', element: Widgets },
   { path: '/register', name: 'Register', element: Register },
   { path: '/profile', name: 'Profile', element: Profile },
+  { path: '/create', name: 'Create', element: CreateCard },
 ]
 
 export default routes

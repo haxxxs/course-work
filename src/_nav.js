@@ -23,6 +23,12 @@ const _nav = [
     to: '/dashboard',
     icon: <CIcon icon={cilAperture} customClassName="nav-icon" />,
   },
+  {
+    component: CNavItem,
+    name: 'Создание карточки',
+    to: '/create',
+    icon: <CIcon icon={cilAperture} customClassName="nav-icon" />,
+  },
   // {
   //   component: CNavTitle,
   //   name: 'Theme',

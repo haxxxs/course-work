@@ -9,149 +9,135 @@ import {
   CFormInput,
   CFormLabel,
   CImage,
+  CCardFooter,
   CButton,
 } from '@coreui/react'
-import { database } from '../../../firebase'
-import { ref, get } from 'firebase/database'
-import styles from './Profile.module.scss'
+import { database, storage } from '../../../firebase'
+import { ref, onValue, set, get } from 'firebase/database'
+import { getDownloadURL, ref as storageRef } from 'firebase/storage'
 
 const Profile = () => {
-  const [user, setUser] = useState(null)
-  const [error, setError] = useState(null)
+  const [userProfile, setUserProfile] = useState(null)
+  const [cardsInProgress, setCardsInProgress] = useState([])
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      const userId = JSON.parse(localStorage.getItem('currentUser'))
-      console.log('Fetched userId from localStorage:', userId)
-      if (!userId) {
-        setError('User not found')
-        return
-      }
+    const userId = JSON.parse(localStorage.getItem('currentUser'))
 
-      try {
-        const userRef = ref(database, 'users/' + userId)
-        console.log('Database reference:', userRef)
-        const snapshot = await get(userRef)
-        if (snapshot.exists()) {
-          console.log('User data found:', snapshot.val())
-          setUser(snapshot.val())
-        } else {
-          console.log('User data not found in database')
-          setError('User data not found')
+    if (!userId) return
+
+    const userRef = ref(database, `users/${userId}`)
+    const trashCardsRef = ref(database, 'trashCards')
+
+    onValue(userRef, async (snapshot) => {
+      const profile = snapshot.val()
+      setUserProfile(profile)
+
+      const cards = []
+      onValue(trashCardsRef, (snapshot) => {
+        const items = snapshot.val()
+        if (items) {
+          const itemsArray = Object.keys(items).map((key) => ({
+            id: key,
+            ...items[key],
+          }))
+          itemsArray.forEach((item) => {
+            if (item.creatorId === userId && item.status === 'in progress') {
+              cards.push(item)
+            }
+          })
         }
-      } catch (err) {
-        console.error('Error fetching user data:', err)
-        setError('Error fetching user data')
-      }
-    }
-
-    fetchUserData()
+        setCardsInProgress(cards)
+      })
+    })
   }, [])
 
-  const handleRemoveTrashItem = async (itemId) => {
-    const userId = JSON.parse(localStorage.getItem('currentUser'))
-    if (!userId) {
-      alert('Please log in to remove items from your profile.')
-      return
-    }
-
+  const handleConfirm = async (item) => {
     try {
-      const userRef = ref(database, 'users/' + userId)
-      const snapshot = await get(userRef)
-      if (snapshot.exists()) {
-        const userData = snapshot.val()
-        const updatedTrashItems = userData.trashItems.filter((item) => item.id !== itemId)
+      const cardRef = ref(database, `trashCards/${item.id}`)
+      await set(cardRef, null)
 
-        const updatedUser = {
-          ...userData,
-          trashItems: updatedTrashItems,
-        }
-
-        setUser(updatedUser)
-        await set(userRef, updatedUser)
-      } else {
-        setError('User data not found')
-      }
+      setCardsInProgress((prev) => prev.filter((card) => card.id !== item.id))
     } catch (error) {
-      console.error('Error removing trash item from user profile:', error)
+      console.error('Error confirming trash item:', error)
     }
   }
 
-  if (error) {
-    return <div>{error}</div>
-  }
+  const handleReject = async (item) => {
+    try {
+      const cardRef = ref(database, `trashCards/${item.id}`)
+      await set(cardRef, { ...item, status: 'available', takenBy: null })
 
-  if (!user) {
-    return <div>Loading...</div>
+      setCardsInProgress((prev) => prev.filter((card) => card.id !== item.id))
+    } catch (error) {
+      console.error('Error rejecting trash item:', error)
+    }
   }
 
   return (
-    <CContainer
-      className={`min-vh-100 d-flex flex-column align-items-center justify-content-center ${styles.profileContainer}`}
-    >
-      <CRow className="justify-content-center w-100">
-        <CCol md={8}>
-          <CCard>
-            <CCardHeader>
-              <h1>Профиль пользователя</h1>
-            </CCardHeader>
-            <CCardBody>
-              <CRow className="mb-3">
-                <CCol md={4}>
-                  <CFormLabel>Имя пользователя</CFormLabel>
+    <CContainer>
+      <CCard>
+        <CCardHeader>My Profile</CCardHeader>
+        <CCardBody>
+          {userProfile ? (
+            <>
+              <CRow>
+                <CCol md="3">
+                  <CFormLabel>Username</CFormLabel>
                 </CCol>
-                <CCol md={8}>
-                  <CFormInput readOnly value={user.username} />
+                <CCol md="9">
+                  <CFormInput type="text" value={userProfile.username} readOnly />
                 </CCol>
               </CRow>
-              <CRow className="mb-3">
-                <CCol md={4}>
-                  <CFormLabel>Адрес</CFormLabel>
-                </CCol>
-                <CCol md={8}>
-                  <CFormInput readOnly value={user.address} />
-                </CCol>
-              </CRow>
-              <CRow className="mb-3">
-                <CCol md={4}>
+              <CRow>
+                <CCol md="3">
                   <CFormLabel>Email</CFormLabel>
                 </CCol>
-                <CCol md={8}>
-                  <CFormInput readOnly value={user.email} />
+                <CCol md="9">
+                  <CFormInput type="text" value={userProfile.email} readOnly />
                 </CCol>
               </CRow>
-              <h2>Мусорные карточки</h2>
-              {user.trashItems && user.trashItems.length > 0 ? (
-                user.trashItems.map((item) => (
-                  <CCard key={item.id} className="mb-3">
-                    <CCardHeader>{item.street}</CCardHeader>
-                    <CCardBody>
-                      <CRow>
-                        <CCol md="5">
-                          <CImage src={item.imageUrl} alt="Trash" width="200px" />
-                        </CCol>
-                        <CCol md="5">
-                          <p>{item.description}</p>
-                        </CCol>
-                      </CRow>
-                    </CCardBody>
-                    <CCardBody>
-                      <CButton color="success" className="me-2">
-                        Выполнено
-                      </CButton>
-                      <CButton color="danger" onClick={() => handleRemoveTrashItem(item.id)}>
-                        Не выполнено
-                      </CButton>
-                    </CCardBody>
-                  </CCard>
-                ))
-              ) : (
-                <p>У вас нет добавленных мусорных карточек.</p>
-              )}
-            </CCardBody>
-          </CCard>
-        </CCol>
-      </CRow>
+            </>
+          ) : (
+            <p>Loading profile...</p>
+          )}
+        </CCardBody>
+      </CCard>
+
+      <CCard>
+        <CCardHeader>Cards in Progress</CCardHeader>
+        <CCardBody>
+          {cardsInProgress.length > 0 ? (
+            cardsInProgress.map((card) => (
+              <CCard key={card.id}>
+                <CCardHeader>
+                  <p>{card.street}</p>
+                  <small>Created by: {card.createdBy}</small>
+                </CCardHeader>
+                <CCardBody>
+                  <CRow>
+                    <CCol md="3">
+                      <CImage src={card.imageUrl} alt="Trash" width="200px" />
+                    </CCol>
+                    <CCol md="8">
+                      <p>{card.description}</p>
+                    </CCol>
+                  </CRow>
+                </CCardBody>
+                <CCardFooter>
+                  <CButton color="success" onClick={() => handleConfirm(card)}>
+                    Confirm Completion
+                  </CButton>
+                  <CButton color="danger" onClick={() => handleReject(card)}>
+                    Reject Completion
+                  </CButton>
+                </CCardFooter>
+              </CCard>
+            ))
+          ) : (
+            <p>No cards in progress.</p>
+          )}
+        </CCardBody>
+      </CCard>
     </CContainer>
   )
 }

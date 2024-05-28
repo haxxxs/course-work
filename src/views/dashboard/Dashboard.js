@@ -62,10 +62,14 @@ const Dashboard = () => {
         const user = userSnapshot.val()
         const updatedUser = {
           ...user,
-          trashItems: [...(user.trashItems || []), item],
+          trashItems: [...(user.trashItems || []), { ...item, status: 'pending' }],
         }
 
         await set(userRef, updatedUser)
+
+        const cardRef = ref(database, `trashCards/${item.id}`)
+        await set(cardRef, { ...item, status: 'in progress', takenBy: userId })
+
         alert('Trash item added to your profile.')
       } else {
         console.error('User not found.')
@@ -79,7 +83,10 @@ const Dashboard = () => {
     <div className={styles['dashboard-container']}>
       {trashItems.map((item) => (
         <CCard key={item.id} className={styles['trash-card']}>
-          <CCardHeader>{item.street}</CCardHeader>
+          <CCardHeader>
+            <p>{item.street}</p>
+            <small>Created by: {item.createdBy}</small>
+          </CCardHeader>
           <CCardBody>
             <CRow className={styles['card-body-row']}>
               <CCol md="3">
@@ -91,10 +98,13 @@ const Dashboard = () => {
             </CRow>
           </CCardBody>
           <CCardFooter>
-            <CButton color="success" onClick={() => handleCleanUp(item)}>
-              <CIcon icon={cilCheckCircle} className="me-2" />
-              Забрать на уборку
-            </CButton>
+            {item.status === 'available' && (
+              <CButton color="success" onClick={() => handleCleanUp(item)}>
+                <CIcon icon={cilCheckCircle} className="me-2" />
+                Забрать на уборку
+              </CButton>
+            )}
+            {item.status === 'in progress' && <p>In progress</p>}
           </CCardFooter>
         </CCard>
       ))}

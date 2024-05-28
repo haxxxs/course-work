@@ -10,7 +10,7 @@ import {
   CFormLabel,
   CButton,
 } from '@coreui/react'
-import { ref, set, push } from 'firebase/database'
+import { ref, set, push, get } from 'firebase/database'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { database, storage } from '../../../firebase'
 
@@ -46,6 +46,22 @@ const CreateCard = () => {
     setError('')
 
     try {
+      const userId = JSON.parse(localStorage.getItem('currentUser'))
+      if (!userId) {
+        setError('User not found')
+        return
+      }
+
+      const userRef = ref(database, 'users/' + userId)
+      const userSnapshot = await get(userRef)
+      if (!userSnapshot.exists()) {
+        setError('User data not found')
+        return
+      }
+
+      const userData = userSnapshot.val()
+      const username = userData.username
+
       const imageRef = storageRef(storage, `trashImages/${Date.now()}_${imageFile.name}`)
       await uploadBytes(imageRef, imageFile)
       const imageUrl = await getDownloadURL(imageRef)
@@ -54,6 +70,10 @@ const CreateCard = () => {
         street,
         description,
         imageUrl,
+        createdBy: username,
+        creatorId: userId,
+        status: 'available', // Начальный статус
+        takenBy: null,
       }
 
       const response = await createTrashCard(cardData)

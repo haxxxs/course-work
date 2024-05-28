@@ -15,7 +15,10 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage
 import { database, storage } from '../../../firebase'
 
 const CreateCard = () => {
+  const [country, setCountry] = useState('')
+  const [city, setCity] = useState('')
   const [street, setStreet] = useState('')
+  const [house, setHouse] = useState('')
   const [description, setDescription] = useState('')
   const [imageFile, setImageFile] = useState(null)
   const [error, setError] = useState('')
@@ -38,7 +41,7 @@ const CreateCard = () => {
   }
 
   const handleCreateCard = async () => {
-    if (!street || !description || !imageFile) {
+    if (!country || !city || !street || !description || !imageFile) {
       setError('Please fill all the fields and select an image.')
       return
     }
@@ -67,20 +70,25 @@ const CreateCard = () => {
       const imageUrl = await getDownloadURL(imageRef)
 
       const cardData = {
+        country,
+        city,
         street,
+        house,
         description,
         imageUrl,
         createdBy: username,
         creatorId: userId,
-        status: 'available', // Начальный статус
+        status: 'available',
         takenBy: null,
       }
 
       const response = await createTrashCard(cardData)
       console.log('New trash card created:', response)
 
-      // Очистить форму после успешного создания карточки
+      setCountry('')
+      setCity('')
       setStreet('')
+      setHouse('')
       setDescription('')
       setImageFile(null)
     } catch (error) {
@@ -92,12 +100,32 @@ const CreateCard = () => {
   return (
     <CContainer>
       <CCard>
-        <CCardHeader>Create Trash Card</CCardHeader>
+        <CCardHeader>Создать карточку с мусором</CCardHeader>
         <CCardBody>
           {error && <div className="text-danger mb-3">{error}</div>}
           <CRow className="mb-3">
             <CCol md="3">
-              <CFormLabel>Street</CFormLabel>
+              <CFormLabel>Страна</CFormLabel>
+            </CCol>
+            <CCol md="9">
+              <CFormInput
+                type="text"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+              />
+            </CCol>
+          </CRow>
+          <CRow className="mb-3">
+            <CCol md="3">
+              <CFormLabel>Город</CFormLabel>
+            </CCol>
+            <CCol md="9">
+              <CFormInput type="text" value={city} onChange={(e) => setCity(e.target.value)} />
+            </CCol>
+          </CRow>
+          <CRow className="mb-3">
+            <CCol md="3">
+              <CFormLabel>Улица</CFormLabel>
             </CCol>
             <CCol md="9">
               <CFormInput type="text" value={street} onChange={(e) => setStreet(e.target.value)} />
@@ -105,7 +133,15 @@ const CreateCard = () => {
           </CRow>
           <CRow className="mb-3">
             <CCol md="3">
-              <CFormLabel>Description</CFormLabel>
+              <CFormLabel>Дом</CFormLabel>
+            </CCol>
+            <CCol md="9">
+              <CFormInput type="text" value={house} onChange={(e) => setHouse(e.target.value)} />
+            </CCol>
+          </CRow>
+          <CRow className="mb-3">
+            <CCol md="3">
+              <CFormLabel>Описание</CFormLabel>
             </CCol>
             <CCol md="9">
               <CFormInput
@@ -117,14 +153,14 @@ const CreateCard = () => {
           </CRow>
           <CRow className="mb-3">
             <CCol md="3">
-              <CFormLabel>Image</CFormLabel>
+              <CFormLabel>Фотография</CFormLabel>
             </CCol>
             <CCol md="9">
               <input type="file" accept="image/*" onChange={handleImageChange} />
             </CCol>
           </CRow>
           <CButton color="primary" onClick={handleCreateCard}>
-            Create Card
+            Создать
           </CButton>
         </CCardBody>
       </CCard>

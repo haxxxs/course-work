@@ -16,6 +16,7 @@ import {
 import CIcon from '@coreui/icons-react'
 import { cilLockLocked, cilUser } from '@coreui/icons'
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
+import { getDatabase, ref, get } from 'firebase/database'
 import { app } from '../../../firebase'
 
 const Login = () => {
@@ -24,6 +25,7 @@ const Login = () => {
   const [error, setError] = useState('')
 
   const auth = getAuth(app)
+  const database = getDatabase(app)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -36,9 +38,16 @@ const Login = () => {
       }
 
       const userCredential = await signInWithEmailAndPassword(auth, username, password)
+      const userId = userCredential.user.uid
 
-      console.log('Login successful:', userCredential.user)
-      // Устанавливаем идентификатор текущего пользователя в localStorage или в контекст приложения, если это требуется
+      // Загружаем данные пользователя из базы данных
+      const userRef = ref(database, `users/${userId}`)
+      const userProfileSnapshot = await get(userRef)
+      const userProfile = userProfileSnapshot.val()
+
+      // Сохраняем userId и профиль пользователя в localStorage
+      localStorage.setItem('currentUser', JSON.stringify(userId))
+      localStorage.setItem('userProfile', JSON.stringify(userProfile))
 
       window.location.href = '/profile'
     } catch (err) {

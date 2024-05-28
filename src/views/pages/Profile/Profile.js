@@ -12,42 +12,51 @@ import {
   CCardFooter,
   CButton,
 } from '@coreui/react'
-import { database, storage } from '../../../firebase'
-import { ref, onValue, set, get } from 'firebase/database'
-import { getDownloadURL, ref as storageRef } from 'firebase/storage'
+import { database } from '../../../firebase'
+import { ref, onValue, set } from 'firebase/database'
 
 const Profile = () => {
   const [userProfile, setUserProfile] = useState(null)
   const [cardsInProgress, setCardsInProgress] = useState([])
+  const [cardsPendingVerification, setCardsPendingVerification] = useState([])
 
   useEffect(() => {
     const userId = JSON.parse(localStorage.getItem('currentUser'))
+    const storedUserProfile = JSON.parse(localStorage.getItem('userProfile'))
 
     if (!userId) return
+
+    if (storedUserProfile) {
+      setUserProfile(storedUserProfile)
+    }
 
     const userRef = ref(database, `users/${userId}`)
     const trashCardsRef = ref(database, 'trashCards')
 
-    onValue(userRef, async (snapshot) => {
+    onValue(userRef, (snapshot) => {
       const profile = snapshot.val()
       setUserProfile(profile)
+    })
 
-      const cards = []
-      onValue(trashCardsRef, (snapshot) => {
-        const items = snapshot.val()
-        if (items) {
-          const itemsArray = Object.keys(items).map((key) => ({
-            id: key,
-            ...items[key],
-          }))
-          itemsArray.forEach((item) => {
-            if (item.creatorId === userId && item.status === 'in progress') {
-              cards.push(item)
-            }
-          })
-        }
-        setCardsInProgress(cards)
-      })
+    onValue(trashCardsRef, (snapshot) => {
+      const items = snapshot.val()
+      if (items) {
+        const itemsArray = Object.keys(items).map((key) => ({
+          id: key,
+          ...items[key],
+        }))
+        const inProgressCards = itemsArray.filter(
+          (item) => item.takenBy === userId && item.status === 'in progress',
+        )
+        const pendingVerificationCards = itemsArray.filter(
+          (item) => item.creatorId === userId && item.status === 'pending verification',
+        )
+        setCardsInProgress(inProgressCards)
+        setCardsPendingVerification(pendingVerificationCards)
+      } else {
+        setCardsInProgress([])
+        setCardsPendingVerification([])
+      }
     })
   }, [])
 
@@ -56,7 +65,7 @@ const Profile = () => {
       const cardRef = ref(database, `trashCards/${item.id}`)
       await set(cardRef, null)
 
-      setCardsInProgress((prev) => prev.filter((card) => card.id !== item.id))
+      setCardsPendingVerification((prev) => prev.filter((card) => card.id !== item.id))
     } catch (error) {
       console.error('Error confirming trash item:', error)
     }
@@ -67,7 +76,7 @@ const Profile = () => {
       const cardRef = ref(database, `trashCards/${item.id}`)
       await set(cardRef, { ...item, status: 'available', takenBy: null })
 
-      setCardsInProgress((prev) => prev.filter((card) => card.id !== item.id))
+      setCardsPendingVerification((prev) => prev.filter((card) => card.id !== item.id))
     } catch (error) {
       console.error('Error rejecting trash item:', error)
     }
@@ -76,13 +85,13 @@ const Profile = () => {
   return (
     <CContainer>
       <CCard>
-        <CCardHeader>My Profile</CCardHeader>
+        <CCardHeader>Мой профиль</CCardHeader>
         <CCardBody>
           {userProfile ? (
             <>
               <CRow>
                 <CCol md="3">
-                  <CFormLabel>Username</CFormLabel>
+                  <CFormLabel>Имя пользователя</CFormLabel>
                 </CCol>
                 <CCol md="9">
                   <CFormInput type="text" value={userProfile.username} readOnly />
@@ -98,13 +107,13 @@ const Profile = () => {
               </CRow>
             </>
           ) : (
-            <p>Loading profile...</p>
+            <p>Загрузга профиля...</p>
           )}
         </CCardBody>
       </CCard>
 
       <CCard>
-        <CCardHeader>Cards in Progress</CCardHeader>
+        <CCardHeader>Текущие задачи</CCardHeader>
         <CCardBody>
           {cardsInProgress.length > 0 ? (
             cardsInProgress.map((card) => (
@@ -123,18 +132,46 @@ const Profile = () => {
                     </CCol>
                   </CRow>
                 </CCardBody>
+              </CCard>
+            ))
+          ) : (
+            <p>Нет текущих задач.</p>
+          )}
+        </CCardBody>
+      </CCard>
+
+      <CCard>
+        <CCardHeader>Задачи ожидающие подтверждения</CCardHeader>
+        <CCardBody>
+          {cardsPendingVerification.length > 0 ? (
+            cardsPendingVerification.map((card) => (
+              <CCard key={card.id}>
+                <CCardHeader>
+                  <p>{card.street}</p>
+                  <small>Created by: {card.createdBy}</small>
+                </CCardHeader>
+                <CCardBody>
+                  <CRow>
+                    <CCol md="3">
+                      <CImage src={card.imageUrl} alt="Trash" width="200px" />
+                    </CCol>
+                    <CCol md="8">
+                      <p>{card.description}</p>
+                    </CCol>
+                  </CRow>
+                </CCardBody>
                 <CCardFooter>
                   <CButton color="success" onClick={() => handleConfirm(card)}>
-                    Confirm Completion
+                    Подтвердить выполнение
                   </CButton>
                   <CButton color="danger" onClick={() => handleReject(card)}>
-                    Reject Completion
+                    Отклонить выполнение
                   </CButton>
                 </CCardFooter>
               </CCard>
             ))
           ) : (
-            <p>No cards in progress.</p>
+            <p>Нет задач на ожидании подтверждения.</p>
           )}
         </CCardBody>
       </CCard>

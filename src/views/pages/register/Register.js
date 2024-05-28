@@ -54,6 +54,7 @@ const Register = () => {
 
       // Сохраняем userId в localStorage
       localStorage.setItem('currentUser', JSON.stringify(uid))
+      localStorage.setItem('userProfile', JSON.stringify(newUser))
 
       // Сбрасываем поля формы
       setUsername('')
